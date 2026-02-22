@@ -100,10 +100,15 @@ export function ChatView({
     }
   };
 
+  const handleBack = () => {
+    window.dispatchEvent(new Event("focus"));
+    onBack();
+  };
+
   return (
     <MainBodyWrapper>
       <Header>Welcome to Notch! ✦</Header>
-      <BackButton onClick={onBack}>← Back to conversations</BackButton>
+      <BackButton onClick={handleBack}>← Back to conversations</BackButton>
       <ChatMessagesWrapper>
         {chatMessages.map((chatMessage) => (
           <ChatMessage {...chatMessage} key={chatMessage.id} />

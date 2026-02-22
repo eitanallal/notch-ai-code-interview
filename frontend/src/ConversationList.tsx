@@ -53,14 +53,28 @@ export function ConversationList({
   onEnter: (id: string) => void;
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchConversations = async () => {
-    const res = await fetch("http://localhost:3000/conversations");
-    setConversations(await res.json());
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("http://localhost:3000/conversations");
+      if (!res.ok) throw new Error("Failed to fetch conversations");
+      setConversations(await res.json());
+    } catch {
+      setError("Could not load conversations. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // Fetch on mount and every time the user returns to this tab
   useEffect(() => {
     fetchConversations();
+    window.addEventListener("focus", fetchConversations);
+    return () => window.removeEventListener("focus", fetchConversations);
   }, []);
 
   const createNew = async () => {
@@ -73,26 +87,30 @@ export function ConversationList({
     onEnter(convo.id);
   };
 
+  const renderContent = () => {
+    if (isLoading)
+      return <p style={{ color: "#888" }}>Loading conversations...</p>;
+    if (error) return <p style={{ color: "red" }}>{error}</p>;
+    if (conversations.length === 0)
+      return <p style={{ color: "#888" }}>No conversations yet. Start one!</p>;
+    return conversations.map((c) => (
+      <ConversationItem key={c.id} onClick={() => onEnter(c.id)}>
+        <span>{c.title || "Untitled"}</span>
+        <span style={{ color: "#888", fontSize: "0.85rem" }}>
+          {c.messageCount} msg{c.messageCount !== 1 ? "s" : ""} ·{" "}
+          {new Date(c.createdAt).toLocaleDateString()}
+        </span>
+      </ConversationItem>
+    ));
+  };
+
   return (
     <MainBodyWrapper>
       <Header>Welcome to Notch! ✦</Header>
       <NewConversationButton onClick={createNew}>
         + New Conversation
       </NewConversationButton>
-      <ListWrapper>
-        {conversations.length === 0 && (
-          <p style={{ color: "#888" }}>No conversations yet. Start one!</p>
-        )}
-        {conversations.map((c) => (
-          <ConversationItem key={c.id} onClick={() => onEnter(c.id)}>
-            <span>{c.title || "Untitled"}</span>
-            <span style={{ color: "#888", fontSize: "0.85rem" }}>
-              {c.messageCount} msg{c.messageCount !== 1 ? "s" : ""} ·{" "}
-              {new Date(c.createdAt).toLocaleDateString()}
-            </span>
-          </ConversationItem>
-        ))}
-      </ListWrapper>
+      <ListWrapper>{renderContent()}</ListWrapper>
     </MainBodyWrapper>
   );
 }
