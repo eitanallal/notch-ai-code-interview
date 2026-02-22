@@ -142,7 +142,7 @@ Example endings: "...hope that helps! 🦊", "...let me know if you need more! �
   }
   // Parse and log the sentiment
   const toolCall = sentimentCompletion.choices[0].message.tool_calls?.[0];
-  if (toolCall) {
+  if (toolCall && toolCall.type === "function") {
     console.log(JSON.stringify(toolCall, undefined, 2));
     const { score, reasoning } = JSON.parse(toolCall.function.arguments);
     console.log(`[Sentiment] Score: ${score}/100 — ${reasoning}`);
