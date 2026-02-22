@@ -1,8 +1,23 @@
 import express from "express";
 import OpenAI from "openai";
 import { config } from "../config";
+import { v4 as uuidv4 } from "uuid";
 
 const router = express.Router();
+
+// --- In-memory store ---
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+interface Conversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  messages: Message[];
+}
+const conversations: Map<string, Conversation> = new Map();
+
 let openai: OpenAI;
 const getOpenAI = () => {
   if (!openai) openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
@@ -13,8 +28,53 @@ router.get("/healthCheck", (_req, res) => {
   res.send("Hello world!");
 });
 
-router.post("/chat", async (req, res) => {
-  const { messages } = req.body;
+// GET /api/conversations — list all
+router.get("/conversations", (_req, res) => {
+  const list = Array.from(conversations.values()).map(
+    ({ id, title, createdAt, messages }) => ({
+      id,
+      title,
+      createdAt,
+      messageCount: messages.length,
+    }),
+  );
+  res.json(list);
+});
+
+// POST /api/conversations — create new
+router.post("/conversations", (req, res) => {
+  const id = uuidv4();
+  const conversation: Conversation = {
+    id,
+    title: req.body.title || "New conversation",
+    createdAt: new Date().toISOString(),
+    messages: [],
+  };
+  conversations.set(id, conversation);
+  res.json(conversation);
+});
+
+// GET /api/conversations/:id — get single with messages
+router.get("/conversations/:id", (req, res) => {
+  const conversation = conversations.get(req.params.id);
+  if (!conversation) throw res.status(404).json({ error: "Not found" });
+  res.json(conversation);
+});
+
+router.post("/conversations/:id/chat", async (req, res) => {
+  const conversation = conversations.get(req.params.id);
+  if (!conversation)
+    throw res.status(404).json({ error: "Conversation not found" });
+
+  const { message } = req.body;
+  const userMessage: Message = { role: "user", content: message };
+  conversation.messages.push(userMessage);
+
+  // Auto-title from first message
+  if (conversation.messages.length === 1) {
+    conversation.title =
+      message.slice(0, 40) + (message.length > 40 ? "…" : "");
+  }
 
   const systemPrompt = {
     role: "system" as const,
@@ -28,7 +88,7 @@ Example endings: "...hope that helps! 🦊", "...let me know if you need more! �
     // Part A: regular chat response
     getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [systemPrompt, ...messages],
+      messages: [systemPrompt, ...conversation.messages],
     }),
 
     // Part B: sentiment extraction via function calling
@@ -40,7 +100,7 @@ Example endings: "...hope that helps! 🦊", "...let me know if you need more! �
           content:
             "You analyze the sentiment of the user's messages in a conversation.",
         },
-        ...messages,
+        ...conversation.messages,
       ],
       tools: [
         {
@@ -89,7 +149,12 @@ Example endings: "...hope that helps! 🦊", "...let me know if you need more! �
   }
 
   const reply = chatCompletion.choices[0].message.content;
-  res.json({ reply });
+  if (!reply)
+    throw res.status(500).json({ error: "No content in OpenAI response" });
+  const assistantMessage: Message = { role: "assistant", content: reply };
+  conversation.messages.push(assistantMessage);
+
+  res.json({ reply, messages: conversation.messages });
 });
 
 export default router;
