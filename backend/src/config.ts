@@ -1,11 +1,12 @@
-import fs from 'node:fs';
-import dotenv from 'dotenv';
-import {z} from "zod";
+import fs from "node:fs";
+import dotenv from "dotenv";
+import { z } from "zod";
 
-const configFile = fs.readFileSync('local.env').toString();
+const configFile = fs.readFileSync("local.env").toString();
 const configUnparsed = dotenv.parse(configFile);
 
 const configSchema = z.object({
-    PORT: z.number({coerce: true})
+  PORT: z.number({ coerce: true }),
+  OPENAI_API_KEY: z.string(),
 });
 export const config = configSchema.parse(configUnparsed);
