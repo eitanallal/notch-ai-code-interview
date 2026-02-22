@@ -7,15 +7,15 @@ import { ChatView } from "./ChatView";
 function App() {
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
-  >(() => sessionStorage.getItem("activeConversationId"));
+  >(() => localStorage.getItem("activeConversationId"));
 
   const enterConversation = (id: string) => {
-    sessionStorage.setItem("activeConversationId", id);
+    localStorage.setItem("activeConversationId", id);
     setActiveConversationId(id);
   };
 
   const goBack = () => {
-    sessionStorage.removeItem("activeConversationId");
+    localStorage.removeItem("activeConversationId");
     setActiveConversationId(null);
   };
 
