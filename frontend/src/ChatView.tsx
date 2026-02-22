@@ -44,8 +44,15 @@ export function ChatView({
 
   useEffect(() => {
     fetch(`http://localhost:3000/conversations/${conversationId}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (r.status === 404) {
+          onBack();
+          return null;
+        }
+        return r.json();
+      })
       .then((convo) => {
+        if (!convo) return;
         setChatMessages(
           convo.messages.map(
             (m: { role: string; content: string }, i: number) => ({
@@ -56,7 +63,7 @@ export function ChatView({
           ),
         );
       });
-  }, [conversationId]);
+  }, [conversationId, onBack]);
 
   const formOnSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -100,6 +107,7 @@ export function ChatView({
     }
   };
 
+  // Trigger a focus event so ConversationList re-fetches when we go back
   const handleBack = () => {
     window.dispatchEvent(new Event("focus"));
     onBack();
